@@ -1,9 +1,18 @@
 import { supabase } from './supabase';
 
+// MCP 도구 호출 정보
+export interface ToolCallInfo {
+  serverName: string;
+  toolName: string;
+  arguments: Record<string, unknown>;
+  result: unknown;
+}
+
 // 기존 인터페이스 유지
 export interface Message {
   role: "user" | "assistant";
   content: string;
+  toolCalls?: ToolCallInfo[];
 }
 
 export interface ChatSession {

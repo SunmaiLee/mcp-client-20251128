@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, User, Bot, Plus, MessageSquare, Trash2, Menu, Sparkles, Server } from "lucide-react";
+import { Send, User, Bot, Plus, MessageSquare, Trash2, Menu, Sparkles, Server, Wrench, ChevronDown, ChevronUp, Code2, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MarkdownRenderer } from "@/app/components/MarkdownRenderer";
 import { useMCP } from "@/lib/mcp/context";
@@ -9,6 +9,7 @@ import Link from "next/link";
 import {
   ChatSession,
   Message,
+  ToolCallInfo,
   getSessions,
   createSession,
   updateSession,
@@ -19,6 +20,121 @@ import {
   migrateFromLocalStorage,
   hasLocalStorageData,
 } from "@/lib/chat-service";
+
+// MCP 도구 호출 정보 표시 컴포넌트
+function ToolCallsDisplay({ toolCalls }: { toolCalls: ToolCallInfo[] }) {
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+
+  const toggleExpand = (index: number) => {
+    setExpandedIndex(expandedIndex === index ? null : index);
+  };
+
+  const formatResult = (result: unknown): string => {
+    if (typeof result === 'string') {
+      try {
+        const parsed = JSON.parse(result);
+        return JSON.stringify(parsed, null, 2);
+      } catch {
+        return result;
+      }
+    }
+    return JSON.stringify(result, null, 2);
+  };
+
+  return (
+    <div className="mb-4 space-y-2">
+      <div className="flex items-center gap-2 text-xs font-medium text-violet-600 dark:text-violet-400 mb-2">
+        <Wrench size={14} />
+        <span>MCP 도구 호출 ({toolCalls.length}개)</span>
+      </div>
+      {toolCalls.map((call, index) => (
+        <div 
+          key={index} 
+          className="rounded-xl border border-violet-200 dark:border-violet-800/50 bg-gradient-to-br from-violet-50 to-indigo-50 dark:from-violet-900/20 dark:to-indigo-900/20 overflow-hidden"
+        >
+          {/* Header - 항상 표시 */}
+          <button
+            onClick={() => toggleExpand(index)}
+            className="w-full flex items-center justify-between p-3 hover:bg-violet-100/50 dark:hover:bg-violet-800/20 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-violet-500/10 dark:bg-violet-500/20 flex items-center justify-center">
+                <Code2 size={16} className="text-violet-600 dark:text-violet-400" />
+              </div>
+              <div className="text-left">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-violet-700 dark:text-violet-300">
+                    {call.toolName}
+                  </span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-violet-200/50 dark:bg-violet-700/30 text-violet-600 dark:text-violet-400">
+                    {call.serverName}
+                  </span>
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1">
+                  {Object.entries(call.arguments || {}).length > 0 ? (
+                    <>
+                      <span className="text-violet-500">→</span>
+                      {Object.entries(call.arguments).slice(0, 2).map(([key, value], i) => (
+                        <span key={key}>
+                          {i > 0 && ", "}
+                          <span className="text-gray-600 dark:text-gray-300">{key}</span>
+                          <span className="text-gray-400">=</span>
+                          <span className="text-emerald-600 dark:text-emerald-400">&quot;{String(value)}&quot;</span>
+                        </span>
+                      ))}
+                      {Object.entries(call.arguments).length > 2 && <span>...</span>}
+                    </>
+                  ) : (
+                    <span className="text-gray-400">매개변수 없음</span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs px-2 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 font-medium">
+                ✓ 완료
+              </span>
+              {expandedIndex === index ? (
+                <ChevronUp size={16} className="text-gray-400" />
+              ) : (
+                <ChevronDown size={16} className="text-gray-400" />
+              )}
+            </div>
+          </button>
+
+          {/* 확장된 상세 정보 */}
+          {expandedIndex === index && (
+            <div className="border-t border-violet-200 dark:border-violet-800/50 p-3 space-y-3 bg-white/50 dark:bg-gray-900/50">
+              {/* 매개변수 */}
+              <div>
+                <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
+                  <ArrowRight size={12} />
+                  <span>입력 매개변수</span>
+                </div>
+                <pre className="text-xs bg-gray-100 dark:bg-gray-800 rounded-lg p-2.5 overflow-x-auto text-gray-700 dark:text-gray-300 font-mono">
+                  {Object.keys(call.arguments || {}).length > 0 
+                    ? JSON.stringify(call.arguments, null, 2)
+                    : "{ }"}
+                </pre>
+              </div>
+
+              {/* 결과 */}
+              <div>
+                <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 mb-1.5">
+                  <ArrowRight size={12} />
+                  <span>결과값</span>
+                </div>
+                <pre className="text-xs bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 rounded-lg p-2.5 overflow-x-auto text-emerald-700 dark:text-emerald-300 font-mono max-h-48">
+                  {formatResult(call.result)}
+                </pre>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function Home() {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -197,40 +313,63 @@ export default function Home() {
       if (!response.ok) throw new Error("Network response was not ok");
       if (!response.body) throw new Error("No response body");
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let assistantMessage: Message = { role: "assistant", content: "" };
+      const contentType = response.headers.get("Content-Type") || "";
       const assistantMessageIndex = currentMessageCount + 1;
 
-      // Add empty assistant message to Supabase first
-      await addMessage(currentSessionId, assistantMessage, assistantMessageIndex);
+      // JSON 응답인 경우 (MCP 도구 호출 정보 포함)
+      if (contentType.includes("application/json")) {
+        const jsonData = await response.json();
+        const assistantMessage: Message = { 
+          role: "assistant", 
+          content: jsonData.content,
+          toolCalls: jsonData.toolCalls
+        };
 
-      setSessions((prev) => prev.map(session => {
-        if (session.id === currentSessionId) {
-          return { ...session, messages: [...session.messages, assistantMessage] };
-        }
-        return session;
-      }));
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        assistantMessage.content += chunk;
+        // Add assistant message to Supabase
+        await addMessage(currentSessionId, assistantMessage, assistantMessageIndex);
 
         setSessions((prev) => prev.map(session => {
           if (session.id === currentSessionId) {
-            const newMessages = [...session.messages];
-            newMessages[newMessages.length - 1] = { ...assistantMessage };
-            return { ...session, messages: newMessages };
+            return { ...session, messages: [...session.messages, assistantMessage] };
           }
           return session;
         }));
-      }
+      } else {
+        // 스트리밍 응답 처리
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let assistantMessage: Message = { role: "assistant", content: "" };
 
-      // Update final assistant message in Supabase
-      await updateLastMessage(currentSessionId, assistantMessage.content, assistantMessageIndex);
+        // Add empty assistant message to Supabase first
+        await addMessage(currentSessionId, assistantMessage, assistantMessageIndex);
+
+        setSessions((prev) => prev.map(session => {
+          if (session.id === currentSessionId) {
+            return { ...session, messages: [...session.messages, assistantMessage] };
+          }
+          return session;
+        }));
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          assistantMessage.content += chunk;
+
+          setSessions((prev) => prev.map(session => {
+            if (session.id === currentSessionId) {
+              const newMessages = [...session.messages];
+              newMessages[newMessages.length - 1] = { ...assistantMessage };
+              return { ...session, messages: newMessages };
+            }
+            return session;
+          }));
+        }
+
+        // Update final assistant message in Supabase
+        await updateLastMessage(currentSessionId, assistantMessage.content, assistantMessageIndex);
+      }
 
     } catch (error) {
       console.error("Error sending message:", error);
@@ -468,7 +607,13 @@ export default function Home() {
                     )}
                   >
                     {msg.role === "assistant" ? (
-                      <MarkdownRenderer content={msg.content} />
+                      <>
+                        {/* MCP 도구 호출 정보 표시 */}
+                        {msg.toolCalls && msg.toolCalls.length > 0 && (
+                          <ToolCallsDisplay toolCalls={msg.toolCalls} />
+                        )}
+                        <MarkdownRenderer content={msg.content} />
+                      </>
                     ) : (
                       <div className="whitespace-pre-wrap break-words leading-relaxed text-[15px]">{msg.content}</div>
                     )}

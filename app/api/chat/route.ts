@@ -175,6 +175,21 @@ export async function POST(req: Request) {
       let finalResponse = "";
       let iterations = 0;
       const maxIterations = 5; // 무한 루프 방지
+      
+      // 도구 호출 정보 수집
+      const toolCallsInfo: Array<{
+        serverName: string;
+        toolName: string;
+        arguments: Record<string, unknown>;
+        result: unknown;
+      }> = [];
+
+      // 서버 이름 맵 생성
+      const allTools = await mcpClientManager.getAllTools();
+      const serverNameMap: Record<string, string> = {};
+      for (const { serverId, serverName } of allTools) {
+        serverNameMap[serverId] = serverName;
+      }
 
       while (iterations < maxIterations) {
         iterations++;
@@ -212,6 +227,17 @@ export async function POST(req: Request) {
 
             console.log(`[MCP] Tool result:`, result);
 
+            // 도구 호출 정보 저장
+            const toolInfo = toolMap[call.name || ""];
+            if (toolInfo) {
+              toolCallsInfo.push({
+                serverName: serverNameMap[toolInfo.serverId] || toolInfo.serverId,
+                toolName: toolInfo.toolName,
+                arguments: (call.args as Record<string, unknown>) || {},
+                result: result,
+              });
+            }
+
             functionResponses.push({
               functionResponse: {
                 name: call.name,
@@ -244,7 +270,21 @@ export async function POST(req: Request) {
         }
       }
 
-      // 스트리밍으로 응답 반환
+      // 도구 호출 정보가 있으면 JSON 형식으로 응답
+      if (toolCallsInfo.length > 0) {
+        const responseData = {
+          content: finalResponse,
+          toolCalls: toolCallsInfo,
+        };
+        
+        return new Response(JSON.stringify(responseData), {
+          headers: {
+            "Content-Type": "application/json; charset=utf-8",
+          },
+        });
+      }
+
+      // 도구 호출이 없으면 일반 텍스트 응답
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
         start(controller) {
