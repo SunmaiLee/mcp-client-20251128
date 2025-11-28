@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, User, Bot, Plus, MessageSquare, Trash2, Menu, Sparkles } from "lucide-react";
+import { Send, User, Bot, Plus, MessageSquare, Trash2, Menu, Sparkles, Server } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MarkdownRenderer } from "@/app/components/MarkdownRenderer";
+import { useMCP } from "@/lib/mcp/context";
+import Link from "next/link";
 import {
   ChatSession,
   Message,
@@ -30,6 +32,9 @@ export default function Home() {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
+  
+  // MCP 상태
+  const { connectedCount, servers } = useMCP();
 
   // Initialize and Load from Supabase (with Local Storage migration)
   useEffect(() => {
@@ -330,7 +335,35 @@ export default function Home() {
             ))}
           </div>
 
-          <div className="mt-auto pt-4 border-t border-slate-800 text-xs text-center text-slate-500 min-w-max">
+          {/* MCP Status in Sidebar */}
+          <Link
+            href="/mcp"
+            className={cn(
+              "flex items-center gap-3 p-3 rounded-xl transition-all border min-w-max",
+              connectedCount > 0
+                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
+                : "bg-slate-800/50 border-slate-700/50 text-slate-400 hover:bg-slate-800"
+            )}
+          >
+            <Server size={18} className={connectedCount > 0 ? "text-emerald-400" : "text-slate-500"} />
+            <div className="flex-1 overflow-hidden">
+              <div className="text-sm font-medium truncate">MCP 서버</div>
+              <div className="text-xs opacity-70 truncate">
+                {connectedCount > 0 
+                  ? `${connectedCount}개 연결됨` 
+                  : servers.length > 0 
+                    ? `${servers.length}개 등록됨`
+                    : "서버 없음"}
+              </div>
+            </div>
+            {connectedCount > 0 && (
+              <span className="bg-emerald-500 text-white text-xs px-2 py-0.5 rounded-full font-medium">
+                {connectedCount}
+              </span>
+            )}
+          </Link>
+
+          <div className="mt-4 pt-4 border-t border-slate-800 text-xs text-center text-slate-500 min-w-max">
             &copy; 2024 AI Friend Client
           </div>
         </div>
@@ -372,7 +405,25 @@ export default function Home() {
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {/* Optional Header Actions */}
+            {/* MCP Status */}
+            <Link
+              href="/mcp"
+              className={cn(
+                "flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm font-medium",
+                connectedCount > 0
+                  ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:hover:bg-emerald-900/50"
+                  : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+              )}
+              title="MCP 서버 관리"
+            >
+              <Server size={16} />
+              <span className="hidden sm:inline">MCP</span>
+              {connectedCount > 0 && (
+                <span className="bg-emerald-500 text-white text-xs px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+                  {connectedCount}
+                </span>
+              )}
+            </Link>
           </div>
         </header>
 
