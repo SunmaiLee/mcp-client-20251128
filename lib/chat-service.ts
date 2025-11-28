@@ -37,6 +37,7 @@ interface DbMessage {
   content: string;
   order_index: number;
   created_at: string;
+  tool_calls?: ToolCallInfo[] | null;
 }
 
 // 모든 세션 조회 (메시지 포함)
@@ -67,14 +68,19 @@ export async function getSessions(): Promise<ChatSession[]> {
   }
 
   // 세션별로 메시지 그룹화
-  const messagesBySession = (messages || []).reduce((acc, msg) => {
+  const messagesBySession = (messages || []).reduce((acc, msg: DbMessage) => {
     if (!acc[msg.session_id]) {
       acc[msg.session_id] = [];
     }
-    acc[msg.session_id].push({
+    const message: Message = {
       role: msg.role as "user" | "assistant",
       content: msg.content,
-    });
+    };
+    // tool_calls가 있으면 추가
+    if (msg.tool_calls && Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) {
+      message.toolCalls = msg.tool_calls;
+    }
+    acc[msg.session_id].push(message);
     return acc;
   }, {} as Record<string, Message[]>);
 
@@ -133,12 +139,19 @@ export async function updateSession(session: ChatSession): Promise<boolean> {
   }
 
   if (session.messages.length > 0) {
-    const messagesToInsert = session.messages.map((msg, index) => ({
-      session_id: session.id,
-      role: msg.role,
-      content: msg.content,
-      order_index: index,
-    }));
+    const messagesToInsert = session.messages.map((msg, index) => {
+      const msgData: Record<string, unknown> = {
+        session_id: session.id,
+        role: msg.role,
+        content: msg.content,
+        order_index: index,
+      };
+      // toolCalls가 있으면 추가
+      if (msg.toolCalls && msg.toolCalls.length > 0) {
+        msgData.tool_calls = msg.toolCalls;
+      }
+      return msgData;
+    });
 
     const { error: insertError } = await supabase
       .from('messages')
@@ -155,14 +168,21 @@ export async function updateSession(session: ChatSession): Promise<boolean> {
 
 // 메시지 추가 (성능 최적화된 버전)
 export async function addMessage(sessionId: string, message: Message, orderIndex: number): Promise<boolean> {
+  const insertData: Record<string, unknown> = {
+    session_id: sessionId,
+    role: message.role,
+    content: message.content,
+    order_index: orderIndex,
+  };
+  
+  // toolCalls가 있으면 추가
+  if (message.toolCalls && message.toolCalls.length > 0) {
+    insertData.tool_calls = message.toolCalls;
+  }
+
   const { error } = await supabase
     .from('messages')
-    .insert({
-      session_id: sessionId,
-      role: message.role,
-      content: message.content,
-      order_index: orderIndex,
-    });
+    .insert(insertData);
 
   if (error) {
     console.error('Error adding message:', error);
@@ -173,10 +193,17 @@ export async function addMessage(sessionId: string, message: Message, orderIndex
 }
 
 // 마지막 메시지 업데이트 (스트리밍용)
-export async function updateLastMessage(sessionId: string, content: string, orderIndex: number): Promise<boolean> {
+export async function updateLastMessage(sessionId: string, content: string, orderIndex: number, toolCalls?: ToolCallInfo[]): Promise<boolean> {
+  const updateData: Record<string, unknown> = { content };
+  
+  // toolCalls가 있으면 추가
+  if (toolCalls && toolCalls.length > 0) {
+    updateData.tool_calls = toolCalls;
+  }
+
   const { error } = await supabase
     .from('messages')
-    .update({ content })
+    .update(updateData)
     .eq('session_id', sessionId)
     .eq('order_index', orderIndex);
 
@@ -276,12 +303,19 @@ export async function migrateFromLocalStorage(): Promise<ChatSession[]> {
 
     // 메시지 생성
     if (session.messages.length > 0) {
-      const messagesToInsert = session.messages.map((msg, index) => ({
-        session_id: session.id,
-        role: msg.role,
-        content: msg.content,
-        order_index: index,
-      }));
+      const messagesToInsert = session.messages.map((msg, index) => {
+        const msgData: Record<string, unknown> = {
+          session_id: session.id,
+          role: msg.role,
+          content: msg.content,
+          order_index: index,
+        };
+        // toolCalls가 있으면 추가
+        if (msg.toolCalls && msg.toolCalls.length > 0) {
+          msgData.tool_calls = msg.toolCalls;
+        }
+        return msgData;
+      });
 
       const { error: messagesError } = await supabase
         .from('messages')
