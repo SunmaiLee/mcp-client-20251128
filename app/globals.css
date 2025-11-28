@@ -120,3 +120,33 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* AI 응답 로딩 애니메이션 */
+@keyframes loading-bar {
+  0% {
+    width: 20%;
+    transform: translateX(-100%);
+  }
+  50% {
+    width: 60%;
+  }
+  100% {
+    width: 20%;
+    transform: translateX(400%);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+  }
+  50% {
+    opacity: 0.8;
+    box-shadow: 0 0 30px rgba(99, 102, 241, 0.7);
+  }
+}
+
+.loading-bar-animation {
+  animation: loading-bar 1.5s ease-in-out infinite;
+}

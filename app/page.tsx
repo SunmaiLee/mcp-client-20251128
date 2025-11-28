@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, User, Bot, Plus, MessageSquare, Trash2, Menu, Sparkles, Server, Wrench, ChevronDown, ChevronUp, Code2, ArrowRight, Image as ImageIcon, Download } from "lucide-react";
+import { Send, User, Bot, Plus, MessageSquare, Trash2, Menu, Sparkles, Server, Wrench, ChevronDown, ChevronUp, Code2, ArrowRight, Image as ImageIcon, Download, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MarkdownRenderer } from "@/app/components/MarkdownRenderer";
 import { useMCP } from "@/lib/mcp/context";
@@ -196,6 +196,53 @@ function UrlImageDisplay({ urls }: { urls: string[] }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// AI 응답 생성 중 로딩 인디케이터
+function LoadingIndicator() {
+  const [dots, setDots] = useState('');
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDots(prev => prev.length >= 3 ? '' : prev + '.');
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
+  
+  return (
+    <div className="flex gap-4 items-start animate-in slide-in-from-bottom-2 duration-300">
+      <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-sm mt-1 border bg-emerald-100 border-emerald-200 text-emerald-600 dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-400">
+        <Bot size={20} strokeWidth={2.5} />
+      </div>
+      
+      <div className="max-w-[85%] lg:max-w-[75%] rounded-2xl px-5 py-4 shadow-sm bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-tl-none">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+            <span className="text-gray-600 dark:text-gray-300 font-medium">
+              AI가 답변을 생성하고 있습니다{dots}
+            </span>
+          </div>
+        </div>
+        
+        {/* 로딩 애니메이션 바 */}
+        <div className="mt-3 space-y-2">
+          <div className="h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500 rounded-full animate-pulse" 
+                 style={{ width: '60%', animation: 'loading-bar 1.5s ease-in-out infinite' }} />
+          </div>
+          <div className="flex items-center gap-2 text-xs text-gray-400">
+            <div className="flex gap-1">
+              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-1.5 h-1.5 bg-violet-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
+            <span>MCP 도구를 사용하는 경우 더 오래 걸릴 수 있습니다</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -934,6 +981,10 @@ export default function Home() {
                 </div>
               ))
             )}
+            
+            {/* 로딩 인디케이터 */}
+            {isLoading && <LoadingIndicator />}
+            
             <div ref={messagesEndRef} />
           </div>
         </div>
