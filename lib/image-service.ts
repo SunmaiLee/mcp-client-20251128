@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 
-const BUCKET_NAME = 'Chat Images';
+// 버킷 이름 (소문자, 하이픈 사용)
+const BUCKET_NAME = 'chat-images';
 
 export interface UploadedImage {
   url: string;
