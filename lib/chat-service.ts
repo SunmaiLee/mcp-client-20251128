@@ -28,7 +28,7 @@ interface DbChatSession {
   id: string;
   title: string;
   created_at: number;
-  updated_at: string;
+  updated_at: string | null;
 }
 
 interface DbMessage {
@@ -70,7 +70,7 @@ export async function getSessions(): Promise<ChatSession[]> {
   }
 
   // 세션별로 메시지 그룹화
-  const messagesBySession = (messages || []).reduce((acc, msg: DbMessage) => {
+  const messagesBySession = ((messages || []) as DbMessage[]).reduce((acc, msg) => {
     if (!acc[msg.session_id]) {
       acc[msg.session_id] = [];
     }
@@ -145,27 +145,19 @@ export async function updateSession(session: ChatSession): Promise<boolean> {
   }
 
   if (session.messages.length > 0) {
-    const messagesToInsert = session.messages.map((msg, index) => {
-      const msgData: Record<string, unknown> = {
-        session_id: session.id,
-        role: msg.role,
-        content: msg.content,
-        order_index: index,
-      };
-      // toolCalls가 있으면 추가
-      if (msg.toolCalls && msg.toolCalls.length > 0) {
-        msgData.tool_calls = msg.toolCalls;
-      }
-      // images가 있으면 추가
-      if (msg.images && msg.images.length > 0) {
-        msgData.images = msg.images;
-      }
-      return msgData;
-    });
+    const messagesToInsert = session.messages.map((msg, index) => ({
+      session_id: session.id,
+      role: msg.role,
+      content: msg.content,
+      order_index: index,
+      tool_calls: msg.toolCalls && msg.toolCalls.length > 0 ? msg.toolCalls : null,
+      images: msg.images && msg.images.length > 0 ? msg.images : null,
+    }));
 
     const { error: insertError } = await supabase
       .from('messages')
-      .insert(messagesToInsert);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .insert(messagesToInsert as any);
 
     if (insertError) {
       console.error('Error inserting messages:', insertError);
@@ -197,7 +189,8 @@ export async function addMessage(sessionId: string, message: Message, orderIndex
 
   const { error } = await supabase
     .from('messages')
-    .insert(insertData);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .insert(insertData as any);
 
   if (error) {
     console.error('Error adding message:', error);
@@ -329,27 +322,19 @@ export async function migrateFromLocalStorage(): Promise<ChatSession[]> {
 
     // 메시지 생성
     if (session.messages.length > 0) {
-      const messagesToInsert = session.messages.map((msg, index) => {
-        const msgData: Record<string, unknown> = {
-          session_id: session.id,
-          role: msg.role,
-          content: msg.content,
-          order_index: index,
-        };
-        // toolCalls가 있으면 추가
-        if (msg.toolCalls && msg.toolCalls.length > 0) {
-          msgData.tool_calls = msg.toolCalls;
-        }
-        // images가 있으면 추가
-        if (msg.images && msg.images.length > 0) {
-          msgData.images = msg.images;
-        }
-        return msgData;
-      });
+      const messagesToInsert = session.messages.map((msg, index) => ({
+        session_id: session.id,
+        role: msg.role,
+        content: msg.content,
+        order_index: index,
+        tool_calls: msg.toolCalls && msg.toolCalls.length > 0 ? msg.toolCalls : null,
+        images: msg.images && msg.images.length > 0 ? msg.images : null,
+      }));
 
       const { error: messagesError } = await supabase
         .from('messages')
-        .insert(messagesToInsert);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .insert(messagesToInsert as any);
 
       if (messagesError) {
         console.error('Error migrating messages:', messagesError);

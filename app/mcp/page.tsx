@@ -25,7 +25,6 @@ import {
   Upload,
   ArrowLeft,
   RefreshCw,
-  ChevronDown,
   ChevronRight,
   AlertCircle,
   CheckCircle,

@@ -12,7 +12,6 @@ import {
   ToolCallInfo,
   getSessions,
   createSession,
-  updateSession,
   deleteSession as deleteSessionFromDb,
   addMessage,
   updateLastMessage,
@@ -694,7 +693,7 @@ export default function Home() {
         // 스트리밍 응답 처리
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
-        let assistantMessage: Message = { role: "assistant", content: "" };
+        const assistantMessage: Message = { role: "assistant", content: "" };
 
         // Add empty assistant message to Supabase first
         await addMessage(currentSessionId, assistantMessage, assistantMessageIndex);

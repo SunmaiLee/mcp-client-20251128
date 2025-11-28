@@ -16,7 +16,8 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          code({ node, inline, className, children, ...props }: any) {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          code({ node, inline, className, children, ...props }: { node?: unknown; inline?: boolean; className?: string; children?: React.ReactNode }) {
             const match = /language-(\w+)/.exec(className || '');
             const isInline = inline || !match;
             const codeContent = String(children).replace(/\n$/, '');
@@ -74,7 +75,7 @@ function CodeBlock({ language, value }: { language: string; value: string }) {
 
   useEffect(() => {
     if (codeRef.current) {
-      delete (codeRef.current as any).dataset.highlighted;
+      delete (codeRef.current as HTMLElement & { dataset: { highlighted?: string } }).dataset.highlighted;
       hljs.highlightElement(codeRef.current);
     }
   }, [value, language]);

@@ -1,4 +1,4 @@
-import { GoogleGenAI, FunctionCallingConfigMode, Type } from "@google/genai";
+import { GoogleGenAI, FunctionCallingConfigMode, Type, FunctionDeclaration, Schema } from "@google/genai";
 import { mcpClientManager } from "@/lib/mcp/client-manager";
 import { MCPTool } from "@/lib/mcp/types";
 
@@ -10,7 +10,7 @@ function convertMCPToolToFunctionDeclaration(
   tool: MCPTool,
   serverId: string,
   serverName: string
-) {
+): FunctionDeclaration {
   // inputSchema의 properties를 Gemini Type으로 변환
   const inputSchema = tool.inputSchema || {};
   const properties = (inputSchema as Record<string, unknown>).properties as
@@ -20,7 +20,7 @@ function convertMCPToolToFunctionDeclaration(
     | string[]
     | undefined;
 
-  const convertedProperties: Record<string, unknown> = {};
+  const convertedProperties: Record<string, Schema> = {};
 
   if (properties) {
     for (const [key, value] of Object.entries(properties)) {
@@ -57,7 +57,7 @@ async function getMCPFunctionDeclarations() {
         serverName
       );
       declarations.push(declaration);
-      toolMap[declaration.name] = { serverId, toolName: tool.name };
+      toolMap[declaration.name!] = { serverId, toolName: tool.name };
     }
   }
 

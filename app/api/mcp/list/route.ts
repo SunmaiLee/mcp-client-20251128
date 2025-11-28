@@ -33,9 +33,11 @@ export async function POST(req: NextRequest) {
     }
 
     if (result.success) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const resultData = result as any;
       return NextResponse.json<ListResponse>({
         success: true,
-        data: result.tools || result.prompts || result.resources,
+        data: resultData.tools || resultData.prompts || resultData.resources,
       });
     } else {
       return NextResponse.json<ListResponse>(
