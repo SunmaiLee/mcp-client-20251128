@@ -104,8 +104,8 @@ function extractBase64Images(result: unknown): ImageData[] {
   return images;
 }
 
-// 이미지 다운로드 함수
-function downloadImage(base64: string, mimeType: string, filename: string) {
+// 이미지 다운로드 함수 (base64용)
+function downloadBase64Image(base64: string, mimeType: string, filename: string) {
   const link = document.createElement('a');
   link.href = `data:${mimeType};base64,${base64}`;
   link.download = filename;
@@ -114,7 +114,27 @@ function downloadImage(base64: string, mimeType: string, filename: string) {
   document.body.removeChild(link);
 }
 
-// 이미지 결과 표시 컴포넌트
+// URL 이미지 다운로드 함수
+async function downloadUrlImage(url: string, filename: string) {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
+  } catch (error) {
+    console.error('Download failed:', error);
+    // 폴백: 새 탭에서 열기
+    window.open(url, '_blank');
+  }
+}
+
+// 이미지 결과 표시 컴포넌트 (base64용)
 function ImageResultDisplay({ images, toolName }: { images: ImageData[], toolName: string }) {
   return (
     <div className="space-y-3">
@@ -133,7 +153,40 @@ function ImageResultDisplay({ images, toolName }: { images: ImageData[], toolNam
             />
             <div className="flex justify-center mt-2">
               <button
-                onClick={() => downloadImage(img.base64, img.mimeType, `${toolName}-${Date.now()}.${img.mimeType.split('/')[1]}`)}
+                onClick={() => downloadBase64Image(img.base64, img.mimeType, `${toolName}-${Date.now()}.${img.mimeType.split('/')[1]}`)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-pink-600 dark:text-pink-400 bg-pink-100 dark:bg-pink-900/30 hover:bg-pink-200 dark:hover:bg-pink-800/40 rounded-lg transition-colors"
+              >
+                <Download size={14} />
+                다운로드
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// URL 이미지 표시 컴포넌트 (Storage URL용)
+function UrlImageDisplay({ urls }: { urls: string[] }) {
+  return (
+    <div className="space-y-3 mb-4">
+      <div className="flex items-center gap-2 text-xs font-medium text-pink-600 dark:text-pink-400">
+        <ImageIcon size={14} />
+        <span>생성된 이미지 ({urls.length}개)</span>
+      </div>
+      {urls.map((url, idx) => (
+        <div key={idx} className="relative group">
+          <div className="rounded-xl overflow-hidden border-2 border-pink-200 dark:border-pink-800/50 bg-gradient-to-br from-pink-50 to-rose-50 dark:from-pink-900/20 dark:to-rose-900/20 p-2">
+            <img
+              src={url}
+              alt={`Generated image ${idx + 1}`}
+              className="w-full max-w-lg rounded-lg shadow-lg mx-auto"
+              style={{ maxHeight: '400px', objectFit: 'contain' }}
+            />
+            <div className="flex justify-center mt-2">
+              <button
+                onClick={() => downloadUrlImage(url, `image-${Date.now()}-${idx}.png`)}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-pink-600 dark:text-pink-400 bg-pink-100 dark:bg-pink-900/30 hover:bg-pink-200 dark:hover:bg-pink-800/40 rounded-lg transition-colors"
               >
                 <Download size={14} />
@@ -538,10 +591,47 @@ export default function Home() {
       // JSON 응답인 경우 (MCP 도구 호출 정보 포함)
       if (contentType.includes("application/json")) {
         const jsonData = await response.json();
+        
+        // toolCalls에서 이미지 추출 및 Storage 업로드
+        let uploadedImageUrls: string[] = [];
+        if (jsonData.toolCalls && Array.isArray(jsonData.toolCalls)) {
+          const allImages: Array<{ base64: string; mimeType: string }> = [];
+          
+          for (const toolCall of jsonData.toolCalls) {
+            const images = extractBase64Images(toolCall.result);
+            for (const img of images) {
+              allImages.push(img);
+            }
+          }
+          
+          // 이미지가 있으면 Storage에 업로드
+          if (allImages.length > 0) {
+            try {
+              const uploadResponse = await fetch('/api/upload-image', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  images: allImages,
+                  sessionId: currentSessionId,
+                  messageIndex: assistantMessageIndex,
+                }),
+              });
+              
+              if (uploadResponse.ok) {
+                const uploadResult = await uploadResponse.json();
+                uploadedImageUrls = uploadResult.urls || [];
+              }
+            } catch (uploadError) {
+              console.error('Failed to upload images:', uploadError);
+            }
+          }
+        }
+        
         const assistantMessage: Message = { 
           role: "assistant", 
           content: jsonData.content,
-          toolCalls: jsonData.toolCalls
+          toolCalls: jsonData.toolCalls,
+          images: uploadedImageUrls.length > 0 ? uploadedImageUrls : undefined,
         };
 
         // Add assistant message to Supabase
@@ -830,6 +920,10 @@ export default function Home() {
                         {/* MCP 도구 호출 정보 표시 */}
                         {msg.toolCalls && msg.toolCalls.length > 0 && (
                           <ToolCallsDisplay toolCalls={msg.toolCalls} />
+                        )}
+                        {/* Storage에 저장된 이미지 URL 표시 */}
+                        {msg.images && msg.images.length > 0 && (
+                          <UrlImageDisplay urls={msg.images} />
                         )}
                         <MarkdownRenderer content={msg.content} />
                       </>

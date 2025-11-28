@@ -13,6 +13,7 @@ export interface Message {
   role: "user" | "assistant";
   content: string;
   toolCalls?: ToolCallInfo[];
+  images?: string[]; // Storage에 저장된 이미지 URL 배열
 }
 
 export interface ChatSession {
@@ -38,6 +39,7 @@ interface DbMessage {
   order_index: number;
   created_at: string;
   tool_calls?: ToolCallInfo[] | null;
+  images?: string[] | null;
 }
 
 // 모든 세션 조회 (메시지 포함)
@@ -79,6 +81,10 @@ export async function getSessions(): Promise<ChatSession[]> {
     // tool_calls가 있으면 추가
     if (msg.tool_calls && Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) {
       message.toolCalls = msg.tool_calls;
+    }
+    // images가 있으면 추가
+    if (msg.images && Array.isArray(msg.images) && msg.images.length > 0) {
+      message.images = msg.images;
     }
     acc[msg.session_id].push(message);
     return acc;
@@ -150,6 +156,10 @@ export async function updateSession(session: ChatSession): Promise<boolean> {
       if (msg.toolCalls && msg.toolCalls.length > 0) {
         msgData.tool_calls = msg.toolCalls;
       }
+      // images가 있으면 추가
+      if (msg.images && msg.images.length > 0) {
+        msgData.images = msg.images;
+      }
       return msgData;
     });
 
@@ -179,6 +189,11 @@ export async function addMessage(sessionId: string, message: Message, orderIndex
   if (message.toolCalls && message.toolCalls.length > 0) {
     insertData.tool_calls = message.toolCalls;
   }
+  
+  // images가 있으면 추가
+  if (message.images && message.images.length > 0) {
+    insertData.images = message.images;
+  }
 
   const { error } = await supabase
     .from('messages')
@@ -193,12 +208,23 @@ export async function addMessage(sessionId: string, message: Message, orderIndex
 }
 
 // 마지막 메시지 업데이트 (스트리밍용)
-export async function updateLastMessage(sessionId: string, content: string, orderIndex: number, toolCalls?: ToolCallInfo[]): Promise<boolean> {
+export async function updateLastMessage(
+  sessionId: string, 
+  content: string, 
+  orderIndex: number, 
+  toolCalls?: ToolCallInfo[],
+  images?: string[]
+): Promise<boolean> {
   const updateData: Record<string, unknown> = { content };
   
   // toolCalls가 있으면 추가
   if (toolCalls && toolCalls.length > 0) {
     updateData.tool_calls = toolCalls;
+  }
+  
+  // images가 있으면 추가
+  if (images && images.length > 0) {
+    updateData.images = images;
   }
 
   const { error } = await supabase
@@ -313,6 +339,10 @@ export async function migrateFromLocalStorage(): Promise<ChatSession[]> {
         // toolCalls가 있으면 추가
         if (msg.toolCalls && msg.toolCalls.length > 0) {
           msgData.tool_calls = msg.toolCalls;
+        }
+        // images가 있으면 추가
+        if (msg.images && msg.images.length > 0) {
+          msgData.images = msg.images;
         }
         return msgData;
       });
